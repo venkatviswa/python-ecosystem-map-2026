@@ -49,9 +49,6 @@ It's meant to be useful in two concrete ways:
 
 ---
 
-
-> **Medium note:** this is the bullet-list edition for Medium (which can't render Markdown tables). The table + Mermaid version lives in the companion file / on GitHub. Three diagrams are marked below for image insertion.
-
 ## Tooling strategy matrix
 
 Two axes that matter more than a flat "top libraries" list: **operational risk** (how settled vs.
@@ -67,8 +64,37 @@ clusters **top-right**; and the **bottom-right "evolving infrastructure"** quadr
 that are becoming load-bearing (LiteLLM, vLLM, Ray, FastMCP) while still moving fast — adopt
 those deliberately.
 
-> 📊 **[Insert image here: `01-strategy-matrix.png`]** — Medium doesn't render Mermaid; export the diagram (see `diagrams/export.sh`) and drop the PNG in at this spot.
-
+```mermaid
+quadrantChart
+    title 2026 Python Tooling Strategy Matrix (curated anchors)
+    x-axis "Low Risk / Mainstream" --> "High Risk / Evolving"
+    y-axis "Core Infrastructure" --> "Domain-Specific / Add-on"
+    quadrant-1 "Emerging & Fast-Moving"
+    quadrant-2 "Mainstream Operational Core"
+    quadrant-3 "Bedrock Foundation"
+    quadrant-4 "Evolving Infra — Watch Closely"
+    "uv": [0.14, 0.22]
+    "ruff": [0.11, 0.13]
+    "pytest": [0.20, 0.09]
+    "Pydantic v2": [0.25, 0.30]
+    "pandas": [0.16, 0.84]
+    "Polars": [0.34, 0.78]
+    "scikit-learn": [0.20, 0.70]
+    "Matplotlib": [0.13, 0.60]
+    "SQLAlchemy 2.0": [0.24, 0.52]
+    "FastAPI": [0.32, 0.64]
+    "boto3 / cloud SDKs": [0.40, 0.52]
+    "marimo": [0.62, 0.82]
+    "LangGraph": [0.80, 0.72]
+    "Reflex": [0.70, 0.66]
+    "Crawl4AI": [0.78, 0.58]
+    "DSPy": [0.88, 0.60]
+    "Unsloth": [0.70, 0.54]
+    "LiteLLM": [0.54, 0.40]
+    "Ray": [0.58, 0.22]
+    "vLLM": [0.74, 0.30]
+    "FastMCP": [0.84, 0.38]
+```
 ---
 
 ## 0. Core dev tooling (the modern baseline)
@@ -453,7 +479,35 @@ hurt debuggability — for a simple provider call it's overhead, not help.
 > retrieve (vector + BM25) → rerank → generate → evaluate (§26)**. Skipping rerank and hybrid is
 > the most common reason retrieval quality disappoints.
 
-> 📊 **[Insert image here: `03-rag-pipeline.png`]** — Medium doesn't render Mermaid; export the diagram (see `diagrams/export.sh`) and drop the PNG in at this spot.
+```mermaid
+graph LR
+    classDef step fill:#ffffff,stroke:#333,stroke-width:1px;
+    classDef tool fill:#f4f5f7,stroke:#5c6bc0,stroke-width:1px,font-style:italic;
+
+    subgraph Ingestion [1. Source Ingestion]
+        A[Raw Docs / PDFs] --> B[Document Parsing]:::step
+        B1(unstructured / docling) --- B
+    end
+    subgraph Processing [2. Chunk & Embed]
+        B --> C[Chunk & Embed]:::step
+        C1(FlagEmbedding / sentence-transformers) --- C
+    end
+    subgraph Retrieval [3. Hybrid Match + Rerank]
+        C --> D[Hybrid Retrieval]:::step
+        D1(Vector DB + rank-bm25) --- D
+        D --> E[Cross-Encoder Reranking]:::step
+        E1(BGE reranker / ST cross-encoder) --- E
+    end
+    subgraph Generation [4. Response Loop]
+        E --> F[LLM Generation]:::step
+        F1(LiteLLM / Provider SDK) --- F
+    end
+    subgraph Quality [5. Evaluation Gate]
+        F --> G[Evaluation]:::step
+        G1(Ragas / Langfuse) --- G
+    end
+    class B1,C1,D1,E1,F1,G1 tool;
+```
 
 ---
 
@@ -630,7 +684,45 @@ SDK **or** `LangGraph` · `Langfuse` tracing
 
 ## Decision tree (start here)
 
-> 📊 **[Insert image here: `02-decision-tree.png`]** — Medium doesn't render Mermaid; export the diagram (see `diagrams/export.sh`) and drop the PNG in at this spot.
+``` mermaid
+graph TD
+    classDef start fill:#e1f5fe,stroke:#03a9f4,stroke-width:2px,font-weight:bold;
+    classDef pick fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,font-weight:bold;
+    classDef step fill:#fff,stroke:#777,stroke-width:1px;
+
+    S([What are you building or needing?]):::start ==> AS{Real-time / high-concurrency<br/>or linear script / ETL?}
+    AS -->|Real-time: async stack<br/>FastAPI, httpx, aiosalesforce| Path{Select Core Need}
+    AS -->|Linear / ETL: sync stack<br/>requests, sync httpx, simple-salesforce| Path
+
+    Path -->|Backend API| API[API Framework]
+    API -->|Default / Async| FA[FastAPI]:::pick
+    API -->|Batteries Included / CRUD| DJ[Django]:::step
+    API -->|Minimal / Lightweight| FL[Flask]:::step
+
+    Path -->|Data App / UI| UI[Frontend Strategy]
+    UI -->|Fast Prototype / Demo| ST[Streamlit]:::pick
+    UI -->|Internal Tools / Event-Driven| NG[NiceGUI]:::step
+    UI -->|Full-Stack Pure Python| RX[Reflex]:::step
+
+    Path -->|Move & Transform Data| DATA[Data Scale]
+    DATA -->|Small–Med / Tabular| PDPL[pandas / Polars]:::pick
+    DATA -->|In-Process Local SQL| DK[DuckDB]:::step
+    DATA -->|Distributed / Petabyte| SP[Ray / Daft / PySpark]:::step
+
+    Path -->|Enterprise Warehouse| WH[Data Location]
+    WH -->|Snowflake Native| SNOW[Snowpark]:::pick
+    WH -->|Databricks Cluster| DBK[pyspark + databricks-connect]:::pick
+
+    Path -->|GenAI / LLMs| LLM[Orchestration Level]
+    LLM -->|Direct Model Call| PRV[Provider SDK / LiteLLM]:::pick
+    LLM -->|Structured Output| INS[Instructor]:::pick
+    LLM -->|Multi-Step State Loops| LG[LangGraph / Agent SDK]:::step
+
+    Path -->|Web Scraping| SCR[Target Type]
+    SCR -->|Static Pages| BS4[httpx + BeautifulSoup]:::pick
+    SCR -->|JavaScript / SPAs| PW[Playwright]:::pick
+    SCR -->|LLM Ingestion| C4AI[Crawl4AI]:::pick
+```
 
 *Text version (searchable):*
 
