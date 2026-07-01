@@ -2,6 +2,7 @@
 
 *An opinionated 2026 map organized by SDLC / use case, with a "reach for it when…" note per
 tool, maturity caveats for fast-moving areas, starter stacks, and a decision tree.*
+In the README: "In a hurry? [See the one-page cheat sheet](Cheatsheet.md)."
 
 ## Introduction — why this exists
 
